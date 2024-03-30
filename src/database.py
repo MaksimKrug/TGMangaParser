@@ -7,7 +7,7 @@ from pymongo.collection import Collection
 from pymongo.database import Database
 
 from src.consts import IS_READ
-from src.model import MangaArtifacts, MangaChapter
+from src.model import MangaArtifacts, MangaChapter, ObjectIdStr
 from src.utils import create_logger
 
 # logger
@@ -26,7 +26,7 @@ def get_db(db_name: str):
 
 def _get_chapter_id(
     collection: Collection, chapter: MangaChapter
-) -> Optional[ObjectId]:
+) -> Optional[ObjectIdStr]:
     mongo_doc = _find_chapter(collection, chapter)
     if mongo_doc is None:
         return None
@@ -54,7 +54,7 @@ def _find_chapter(collection: Collection, chapter: MangaChapter) -> Optional[Dic
 
 
 def _find_chapter_by_id(
-    db: Database, object_id: ObjectId
+    db: Database, object_id: ObjectIdStr
 ) -> Optional[Tuple[Collection, Dict]]:
     for collection_name in db.list_collection_names():
         collection = db[collection_name]
@@ -64,21 +64,22 @@ def _find_chapter_by_id(
     return None
 
 
-def mark_chapter_as_read(db: Database, object_id: ObjectId) -> Optional[Dict]:
+def mark_chapter_as_read(db: Database, object_id: ObjectIdStr) -> Optional[Dict]:
     """mark chapter as read"""
     mongo_doc = _find_chapter_by_id(db, object_id)
     if mongo_doc is None:
         logger.info("Can't find chapter: %i", object_id)
-    else:
-        collection, chapter = mongo_doc
-        if IS_READ in chapter:
-            filter_query = {'_id': chapter['_id']}
-            update_query = {'$set': {IS_READ: True}}
-            collection.update_one(filter_query, update_query)
-        else:
-            ValueError('Check is_read field existence')
-
-    return chapter
+        return None
+    # mark as read
+    collection, chapter = mongo_doc
+    if IS_READ in chapter:
+        filter_query = {'_id': chapter['_id']}
+        update_query = {'$set': {IS_READ: True}}
+        collection.update_one(filter_query, update_query)
+        return chapter
+    # if IS_READ field doesn't exists
+    ValueError('Check is_read field existence')
+    return None
 
 
 def get_new_chapters(db: Database, manga: MangaArtifacts) -> List[MangaChapter]:
